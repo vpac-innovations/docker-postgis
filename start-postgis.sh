@@ -7,7 +7,7 @@ CONF="/etc/postgresql/9.4/main/postgresql.conf"
 POSTGRES="/usr/lib/postgresql/9.4/bin/postgres"
 INITDB="/usr/lib/postgresql/9.4/bin/initdb"
 SQLDIR="/usr/share/postgresql/9.4/contrib/postgis-2.1/"
-LOCALONLY="-c listen_addresses='127.0.0.1, ::1'"
+LOCALONLY="-c listen_addresses='*, ::1'"
 
 # /etc/ssl/private can't be accessed from within container for some reason
 # (@andrewgodwin says it's something AUFS related)  - taken from https://github.com/orchardup/docker-postgresql/blob/master/Dockerfile
