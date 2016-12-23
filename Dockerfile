@@ -4,26 +4,37 @@
 FROM ubuntu:14.04
 MAINTAINER Stefan Verhoeven <s.verhoeven@esciencecenter.nl>
 
+ARG PG_VERSION=9.6
+ARG POSTGIS_VERSION=2.3
+
 # Configuring locales
-ENV DEBIAN_FRONTEND noninteractive
-RUN dpkg-reconfigure locales && \
-      locale-gen en_US.UTF-8 && \
-      update-locale LANG=en_US.UTF-8
+RUN export DEBIAN_FRONTEND=noninteractive TERM=linux; \
+    dpkg-reconfigure locales && \
+    locale-gen en_US.UTF-8 && \
+    update-locale LANG=en_US.UTF-8
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 
-RUN useradd -m -d /home/cartodb -s /bin/bash cartodb && \
+RUN export DEBIAN_FRONTEND=noninteractive TERM=linux; \
+  useradd -m -d /home/cartodb -s /bin/bash cartodb && \
   apt-get update && \
   apt-get install -y -q \
-    postgresql-9.3 \
-    postgresql-client-9.3 \
-    postgresql-contrib-9.3 \
-    postgresql-server-dev-9.3 \
-    postgresql-plpython-9.3 \
-    postgresql-9.3-plproxy \
-    postgresql-9.3-postgis-2.1 \
-    postgresql-9.3-postgis-2.1-scripts \
+    curl \
+    ca-certificates \
+    --no-install-recommends && \
+  echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
+  pgkey=$(curl --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc) && echo "$pgkey" | sudo apt-key add - && \
+  apt-get update && \
+  apt-get install -y -q \
+    postgresql-$PG_VERSION \
+    postgresql-client-$PG_VERSION \
+    postgresql-contrib-$PG_VERSION \
+    postgresql-server-dev-$PG_VERSION \
+    postgresql-plpython-$PG_VERSION \
+    postgresql-$PG_VERSION-plproxy \
+    postgresql-$PG_VERSION-postgis-$POSTGIS_VERSION \
+    postgresql-$PG_VERSION-postgis-$POSTGIS_VERSION-scripts \
     postgis \
     git \
     pgtune \
@@ -32,9 +43,7 @@ RUN useradd -m -d /home/cartodb -s /bin/bash cartodb && \
     python2.7-dev \
     python-setuptools \
     redis-server \
-    curl \
-    ca-certificates \
-    --no-install-recommends 
+    --no-install-recommends
 
 # Install NodeJS
 RUN curl https://nodejs.org/download/release/v0.10.41/node-v0.10.41-linux-x64.tar.gz| tar -zxf - --strip-components=1 -C /usr
@@ -54,12 +63,9 @@ RUN /bin/bash -l -c 'gem install bundle archive-tar-minitar'
 RUN /bin/bash -l -c 'gem install bundler --no-doc --no-ri'
 
 # Setting PostgreSQL
-RUN sed -i 's/\(peer\|md5\)/trust/' /etc/postgresql/9.3/main/pg_hba.conf && \
-      echo "host all all 0.0.0.0/0 trust" >> /etc/postgresql/9.3/main/pg_hba.conf && \
-      pgtune -T Web -c 100 -i /etc/postgresql/9.3/main/postgresql.conf -o /etc/postgresql/9.3/main/postgresql.conf.pgtune && \
-      echo "listen_addresses = '*'" >> /etc/postgresql/9.3/main/postgresql.conf.pgtune && \
-      mv /etc/postgresql/9.3/main/postgresql.conf /etc/postgresql/9.3/main/postgresql.conf.orig && \
-      mv /etc/postgresql/9.3/main/postgresql.conf.pgtune /etc/postgresql/9.3/main/postgresql.conf
+RUN sed -i 's/\(peer\|md5\)/trust/' /etc/postgresql/$PG_VERSION/main/pg_hba.conf && \
+      echo "host all all 0.0.0.0/0 trust" >> /etc/postgresql/$PG_VERSION/main/pg_hba.conf && \
+      echo "listen_addresses = '*'" >> /etc/postgresql/$PG_VERSION/main/postgresql.conf
 
 
 # Install schema_triggers
@@ -68,7 +74,7 @@ RUN git clone https://github.com/CartoDB/pg_schema_triggers.git && \
       make all install && \
       sed -i \
       "/#shared_preload/a shared_preload_libraries = 'schema_triggers.so'" \
-      /etc/postgresql/9.3/main/postgresql.conf
+      /etc/postgresql/$PG_VERSION/main/postgresql.conf
 ADD ./template_postgis.sh /tmp/template_postgis.sh
 RUN service postgresql start && /bin/su postgres -c \
       /tmp/template_postgis.sh && service postgresql stop
